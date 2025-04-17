@@ -1,15 +1,59 @@
 #include "ej1.h"
 
-string_proc_list* string_proc_list_create(void){
+string_proc_list* string_proc_list_create(void) {
+    string_proc_list* list = (string_proc_list*)malloc(sizeof(string_proc_list));
+    if (list == NULL) {
+        return NULL; // Manejar error de asignación de memoria
+    }
+    list->first = NULL;
+    list->last = NULL;
+    return list;
 }
 
-string_proc_node* string_proc_node_create(uint8_t type, char* hash){
+string_proc_node* string_proc_node_create(uint8_t type, char* hash) {
+    string_proc_node* node = (string_proc_node*)malloc(sizeof(string_proc_node));
+    if (node == NULL) {
+        return NULL; // Manejar error de asignación de memoria
+    }
+    
+    node->next = NULL;
+    node->previous = NULL;
+    node->hash = hash; // Simplemente asignar el puntero
+    node->type = type;
+    
+    return node;
 }
 
-void string_proc_list_add_node(string_proc_list* list, uint8_t type, char* hash){
+void string_proc_list_add_node(string_proc_list* list, uint8_t type, char* hash) {
+    if (list == NULL) return;
+    
+    string_proc_node* node = string_proc_node_create(type, hash);
+    if (node == NULL) return; // Manejar error de creación del nodo
+    
+    if (list->first == NULL) {
+        list->first = node;
+        list->last = node;
+    } else {
+        list->last->next = node;
+        node->previous = list->last;
+        list->last = node;
+    }
 }
 
 char* string_proc_list_concat(string_proc_list* list, uint8_t type , char* hash){
+    if (list == NULL || hash == NULL) return NULL;
+    char* result = str_concat("", hash); 
+    if (result == NULL) return NULL;
+    string_proc_node* current_node = list->first;
+    while (current_node != NULL) {
+        if (current_node->type == type && current_node->hash != NULL) {
+            char* temp = str_concat(result, current_node->hash);
+            free(result);
+            result = temp;
+        }
+        current_node = current_node->next;
+    }
+    return result;
 }
 
 
@@ -64,3 +108,4 @@ void string_proc_list_print(string_proc_list* list, FILE* file){
         }
 }
 
+ 
