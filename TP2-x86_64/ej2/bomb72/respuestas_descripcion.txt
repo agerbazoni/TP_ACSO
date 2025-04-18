@@ -1,0 +1,34 @@
+# Resolución de las Fases de la Bomba
+
+## Fase 1
+Analicé la función `phase_1` y descubrí que para desactivarla, el input debía coincidir exactamente con una cadena específica almacenada en memoria. Simplemente extraje esta cadena examinando el registro que contenía su dirección.
+
+## Fase 2
+Para desactivar esta fase, identifiqué tres condiciones clave:
+1. Debía ingresar dos números, ninguno podía ser cero (ya que se multiplicaban y se verificaba que el resultado no fuera cero).
+2. La suma de ambos números debía ser exactamente 7767.
+3. La función `misterio` realizaba un XOR entre los números y verificaba que el resultado fuera negativo, lo que significa que los números debían tener signos opuestos.
+
+## Fase 3
+Esta fase requería ingresar una palabra y un número, para que la función `__isoc99_sscanf` funcionara correctamente y pudiera procesar los valores(devolviendo un entero que luego se comparaba). 
+Mediante análisis del código, descubrí que:
+1. La palabra debía existir en el archivo `palabras.txt`.
+2. La función `cuenta` realizaba una búsqueda binaria de esta palabra en la lista.
+3. El número ingresado debía ser mayor a 9999 y coincidir exactamente con la suma de los índices de división utilizados durante la búsqueda binaria.
+Dadas estas condiciones busque un valor en la lista de palabras que cumpliera con estas condiciones.
+
+## Fase 4
+Para esta fase, la función`__isoc99_sscanf` tenía que recibir dos o más enteros para que la comparación funcionara correctamente y la bomba no explotara. El código:
+1. Usaba el primer entero como índice inicial en un array específico.
+2. Seguía una secuencia recursiva donde cada valor obtenido del array se usaba como índice para el siguiente paso.
+3. El objetivo era llegar al valor 15 (que era uno de los elementos del array) en exactamente 10 pasos.
+4. El segundo entero debía ser igual a la suma de todos los índices recorridos.
+
+## Fase Secreta
+Descubrí esta fase al hacer `disassemble` de la función `phase_defused`. Encontré código que comparaba strings y, examinando las direcciones de memoria, hallé la expresión "abrete_sesamo". Al ingresar esto en la fase 3, se activó la fase secreta. El análisis reveló:
+1. Se activaba después de completar la fase 4.
+2. Involucraba un árbol binario con tres nodos: raíz (36), izquierdo (8) y derecho (50).
+3. La función `fun7` debía retornar exactamente 2.
+4. La solución requería un número entre 8 y 36 que siguiera una ruta específica en el árbol.
+
+El número 22 cumplía todas las condiciones, resolviendo exitosamente la fase secreta.
