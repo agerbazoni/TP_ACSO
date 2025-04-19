@@ -92,7 +92,7 @@ string_proc_list_add_node_asm:
     mov rbp, rsp
 
     push r12
-    push r13        ; Guardar también r13 para usarlo como registro temporal
+    push r13        
 
     mov r12, rdi    ; list
 
@@ -164,14 +164,13 @@ string_proc_list_concat_asm:
     jmp .return_null
 
 .separator_not_null:
-    ; Store parameters in preserved registers
+
     mov r12, rdi        ; list
     mov r13, rsi        ; type
     mov r14, rdx        ; separator
     
-    ; Initialize result with empty string
     mov rdi, empty_str
-    call strdup         ; Necesitas esta función o implementarla
+    call strdup         
     test rax, rax
     jne .strdup_ok
     mov r8, 3          ; Código 3: strdup falló
@@ -205,12 +204,11 @@ string_proc_list_concat_asm:
     ; Concatenate current result with node's hash
     mov r8, 7          ; Código 7: antes de concatenar
     mov rdi, r15        ; First arg: current result
-    mov rsi, [rbx + 24] ; Second arg: node's hash
+    mov rsi, [rbx + 24] ; Second arg: hash
     
-    ; Save current result pointer (to free later)
     push r15
     
-    call str_concat     ; Call str_concat
+    call str_concat     
     
     ; Check if concatenation failed
     test rax, rax
@@ -220,13 +218,13 @@ string_proc_list_concat_asm:
     jmp .cleanup_and_exit
 
 .concat_ok:
-    ; Update result pointer and free old result
-    mov r15, rax        ; Update result pointer
-    pop rdi             ; Get old result pointer
-    call free           ; Free old result
+
+    mov r15, rax        ; actualizo el puntero al resultado
+    pop rdi             ; puntero al resultado viejo
+    call free           ; libero el viejo resultado
 
 .next_node:
-    mov rbx, [rbx]      ; Move to next node
+    mov rbx, [rbx]      ; me muevo al nodo siguiente
     jmp .loop
 
 .add_prefix:
@@ -235,9 +233,9 @@ string_proc_list_concat_asm:
     mov rdi, r14        ; First arg: separator (prefix)
     mov rsi, r15        ; Second arg: current result
     
-    push r15            ; Save current result pointer
+    push r15            
     
-    call str_concat     ; Call str_concat
+    call str_concat     ;
     
     test rax, rax
     jne .prefix_ok
@@ -246,13 +244,13 @@ string_proc_list_concat_asm:
     jmp .cleanup_and_exit
 
 .prefix_ok:
-    mov r15, rax        ; Update result pointer
-    pop rdi             ; Get old result pointer
-    call free           ; Free old result
+    mov r15, rax        ; actualizo el puntero al resultado
+    pop rdi             ; puntero al resultado viejo
+    call free           ; libero el viejo resultado
     jmp .end
 
 .cleanup_and_exit:
-    ; We got an error, free the current result
+    ; Hubo un error, liberar memoria y retornar NULL
     mov rdi, r15
     call free
     xor rax, rax        ; Return NULL
@@ -263,23 +261,16 @@ string_proc_list_concat_asm:
     jmp .return
 
 .end:
-    mov rax, r15        ; Return final result
+    mov rax, r15        ; Resultado final
     mov r8, 0           ; Código 0: éxito
 
 .return:
-    ; Agregar el código de error al bit más alto si hubo error
     test rax, rax
     jnz .skip_error_code
     
-    ; Si rax es NULL, usamos r8 como código de error
-    ; Puedes almacenar el código de error en algún lugar o
-    ; retornarlo de alguna manera que puedas verificar después
-    
-    ; Opción: modificar un registro global o una variable global
-    ; (necesitarías agregar esto a tu código)
 
 .skip_error_code:
-    ; Restore preserved registers
+    ; Restauro registros
     pop rbx
     pop r15
     pop r14
