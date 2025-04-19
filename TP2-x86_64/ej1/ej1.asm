@@ -17,6 +17,7 @@ global string_proc_list_concat_asm
 extern malloc
 extern free
 extern str_concat
+extern strdup
 
 
 string_proc_list_create_asm:
@@ -36,10 +37,9 @@ string_proc_list_create_asm:
 
 .return_null:
     xor rax, rax
-    ret
-
 
 .end:
+    mov rsp, rbp
     pop rbp
     ret
 
@@ -64,7 +64,7 @@ string_proc_node_create_asm:
     ; Inicializa los campos del nodo
     mov qword [rax], 0       ; node->next = NULL
     mov qword [rax + 8], 0   ; node->previous = NULL
-    mov qword [rax + 16], r12 ; node->type = type (un byte)
+    mov byte [rax + 16], r12b
     mov qword [rax + 24], r13 ; node->hash = hash
 
     jmp .end
@@ -73,12 +73,14 @@ string_proc_node_create_asm:
     xor rax, rax
     pop r13
     pop r12
+    mov rsp, rbp
     pop rbp
     ret
 
 .end:
     pop r13
     pop r12
+    mov rsp, rbp
     pop rbp
     ret
 
@@ -125,12 +127,14 @@ string_proc_list_add_node_asm:
     mov [r12 + 8], rax    ; list->last = node
     pop r13
     pop r12
+    mov rsp, rbp
     pop rbp
     ret
 
 .end:
     pop r13
     pop r12
+    mov rsp, rbp
     pop rbp
     ret
 
@@ -144,61 +148,108 @@ string_proc_list_concat_asm:
     push r15
     push rbx
 
+    ; Bandera de depuración: inicializada en 0
+    xor r8, r8
+
     ; Check null pointers
     test rdi, rdi
-    je .return_null
-    test rsi, rsi
-    je .return_null
+    jne .list_not_null
+    mov r8, 1          ; Código 1: list == NULL
+    jmp .return_null
 
+.list_not_null:
+    test rdx, rdx      ; Verificar si separator es NULL
+    jne .separator_not_null
+    mov r8, 2          ; Código 2: separator == NULL
+    jmp .return_null
+
+.separator_not_null:
     ; Store parameters in preserved registers
     mov r12, rdi        ; list
     mov r13, rsi        ; type
     mov r14, rdx        ; separator
     
-    ; Initialize result with empty string + separator
+    ; Initialize result with empty string
     mov rdi, empty_str
-    mov rsi, rdx
-    call str_concat
+    call strdup         ; Necesitas esta función o implementarla
     test rax, rax
-    je .return_null
+    jne .strdup_ok
+    mov r8, 3          ; Código 3: strdup falló
+    jmp .return_null
 
+.strdup_ok:
     ; Prepare for loop
     mov r15, rax        ; r15 = result (track current result)
     mov rbx, [r12]      ; rbx = list->first (current node)
+    
+    ; Si la lista está vacía, saltar a añadir prefijo
+    test rbx, rbx
+    jne .loop
+    mov r8, 4          ; Código 4: lista vacía
+    jmp .add_prefix
 
 .loop:
     test rbx, rbx       ; if (current == NULL)
-    je .end_loop        ;     goto end
+    je .add_prefix
 
     ; Check if node matches type
+    mov r8, 5          ; Código 5: verificando tipo
     cmp byte [rbx + 16], r13b
     jne .next_node
 
     ; Check if hash field is not NULL
+    mov r8, 6          ; Código 6: verificando hash
     cmp qword [rbx + 24], 0
     je .next_node
 
     ; Concatenate current result with node's hash
+    mov r8, 7          ; Código 7: antes de concatenar
     mov rdi, r15        ; First arg: current result
     mov rsi, [rbx + 24] ; Second arg: node's hash
     
     ; Save current result pointer (to free later)
-    mov r12, r15
-
+    push r15
+    
     call str_concat     ; Call str_concat
     
     ; Check if concatenation failed
     test rax, rax
-    je .cleanup_and_exit
-    
+    jne .concat_ok
+    mov r8, 8          ; Código 8: str_concat falló
+    pop rdi            ; Limpiar la pila
+    jmp .cleanup_and_exit
+
+.concat_ok:
     ; Update result pointer and free old result
     mov r15, rax        ; Update result pointer
-    mov rdi, r12        ; Set old result as argument to free
+    pop rdi             ; Get old result pointer
     call free           ; Free old result
 
 .next_node:
-    mov rbx, [rbx + 8]  ; Move to next node
+    mov rbx, [rbx]      ; Move to next node
     jmp .loop
+
+.add_prefix:
+    ; Añadir prefijo al inicio del resultado
+    mov r8, 9          ; Código 9: añadiendo prefijo
+    mov rdi, r14        ; First arg: separator (prefix)
+    mov rsi, r15        ; Second arg: current result
+    
+    push r15            ; Save current result pointer
+    
+    call str_concat     ; Call str_concat
+    
+    test rax, rax
+    jne .prefix_ok
+    mov r8, 10         ; Código 10: falló al añadir prefijo
+    pop rdi            ; Limpiar la pila
+    jmp .cleanup_and_exit
+
+.prefix_ok:
+    mov r15, rax        ; Update result pointer
+    pop rdi             ; Get old result pointer
+    call free           ; Free old result
+    jmp .end
 
 .cleanup_and_exit:
     ; We got an error, free the current result
@@ -211,15 +262,29 @@ string_proc_list_concat_asm:
     xor rax, rax        ; Return NULL
     jmp .return
 
-.end_loop:
+.end:
     mov rax, r15        ; Return final result
+    mov r8, 0           ; Código 0: éxito
 
 .return:
+    ; Agregar el código de error al bit más alto si hubo error
+    test rax, rax
+    jnz .skip_error_code
+    
+    ; Si rax es NULL, usamos r8 como código de error
+    ; Puedes almacenar el código de error en algún lugar o
+    ; retornarlo de alguna manera que puedas verificar después
+    
+    ; Opción: modificar un registro global o una variable global
+    ; (necesitarías agregar esto a tu código)
+
+.skip_error_code:
     ; Restore preserved registers
     pop rbx
     pop r15
     pop r14
     pop r13
     pop r12
+    mov rsp, rbp
     pop rbp
     ret
