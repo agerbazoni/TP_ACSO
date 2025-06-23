@@ -15,6 +15,8 @@
 #include <thread>      // for thread
 #include <vector>      // for vector
 #include "Semaphore.h" // for Semaphore
+#include <queue>
+#include <atomic>
 
 using namespace std;
 
@@ -34,6 +36,9 @@ typedef struct worker {
     /**
      * Complete the definition of the worker_t struct here...
      **/
+    bool available = true;
+    Semaphore workReady{0};
+
 } worker_t;
 
 class ThreadPool {
@@ -72,12 +77,18 @@ class ThreadPool {
     void dispatcher();
     thread dt;                              // dispatcher thread handle
     vector<worker_t> wts;                   // worker thread handles. you may want to change/remove this
-    bool done;                              // flag to indicate the pool is being destroyed
+    std::atomic<bool> done;                              // flag to indicate the pool is being destroyed
     mutex queueLock;                        // mutex to protect the queue of tasks
 
     /* It is incomplete, there should be more private variables to manage the structures... 
     * *
     */
+
+   queue<function<void(void)>> taskQueue;
+   Semaphore newTaskAvailable;
+   Semaphore availableWorkers;
+   mutex workerLock;
+   std::atomic<bool> destroyed{false};
   
     /* ThreadPools are the type of thing that shouldn't be cloneable, since it's
     * not clear what it means to clone a ThreadPool (should copies of all outstanding
